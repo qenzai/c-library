@@ -1,0 +1,199 @@
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <algorithm>
+#include <chrono>
+#include <thread>
+#include <cstdlib>
+#include <ctime>
+#include <utility>
+
+using namespace std;
+
+const int MAX_HIGHSCORES = 5;
+const string HIGHSCORE_FILE = "Highrecord.txt";
+
+struct GameSettings {
+    int gridSize;
+    int differences;
+};
+
+void showMainMenu() {
+    cout << "Основне меню програми:\n"
+         << "1. Нова гра\n"
+         << "2. Показати найкращі результати\n"
+         << "3. Налаштування\n"
+         << "4. Вихід\n";
+}
+
+void showSettingsMenu() {
+    cout << "Підменю налаштування гри:\n"
+         << "1. Розмір поля 3*3, 1 неспівпадіння\n"
+         << "2. Розмір поля 4*4, 1 неспівпадіння\n"
+         << "3. Розмір поля 4*4, 2 неспівпадіння\n"
+         << "4. Розмір поля 5*5, 1 неспівпадіння\n"
+         << "5. Розмір поля 5*5, 2 неспівпадіння\n"
+         << "6. Розмір поля 5*5, 3 неспівпадіння\n";
+}
+
+void generateRandomMatrix(vector<vector<int>>& matrix, int size) {
+    for (int i = 0; i < size; ++i) {
+        for (int j = 0; j < size; ++j) {
+            matrix[i][j] = rand() % 10;
+        }
+    }
+}
+
+void createDifferences(vector<vector<int>>& matrix1, vector<vector<int>>& matrix2, int size, int differences) {
+    for (int i = 0; i < size; ++i) {
+        for (int j = 0; j < size; ++j) {
+            matrix2[i][j] = matrix1[i][j];
+        }
+    }
+
+    for (int i = 0; i < differences; ++i) {
+        int x = rand() % size;
+        int y = rand() % size;
+        // Ensure the difference is noticeable and does not repeat the same cell
+        while (matrix1[x][y] == matrix2[x][y]) {
+            matrix2[x][y] = matrix1[x][y] + 1 + rand() % 10;
+        }
+    }
+}
+
+void displayMatrix(const vector<vector<int>>& matrix, int size) {
+    for (int i = 0; i < size; ++i) {
+        for (int j = 0; j < size; ++j) {
+            cout << matrix[i][j] << " ";
+        }
+        cout << endl;
+    }
+}
+
+void displayMatrixWithDelay(const vector<vector<int>>& matrix, int size, int delaySeconds) {
+    displayMatrix(matrix, size);
+    this_thread::sleep_for(chrono::seconds(delaySeconds));
+    cout << "\033[2J\033[H";  // Clear the screen (Note: platform-dependent)
+}
+
+void playGame(GameSettings settings) {
+
+    int settingChoice;
+      showSettingsMenu();
+      cin >> settingChoice;
+
+      switch (settingChoice) {
+        case 1: settings = {3, 1}; break;
+        case 2: settings = {4, 1}; break;
+        case 3: settings = {4, 2}; break;
+        case 4: settings = {5, 1}; break;
+        case 5: settings = {5, 2}; break;
+        case 6: settings = {5, 3}; break;
+        default: 
+          cout << "Невірний вибір. Спробуйте ще раз.\n";
+          return; // Exit if the choice is invalid
+      }
+    
+    int size = settings.gridSize;
+    int differences = settings.differences;
+
+    vector<vector<int>> matrix1(size, vector<int>(size));
+    vector<vector<int>> matrix2(size, vector<int>(size));
+
+    generateRandomMatrix(matrix1, size);
+    createDifferences(matrix1, matrix2, size, differences);
+
+
+    cout << "Введіть ім'я користувача: ";
+    string username;
+    cin >> username;
+
+    cout << "Перша матриця:\n";
+    displayMatrixWithDelay(matrix1, size, 3);
+
+    cout << "Друга матриця:\n";
+    displayMatrixWithDelay(matrix2, size, 3);
+
+    vector<pair<int, int>> userDifferences(differences);
+    cout << "Введіть різниці між елементами матриць у форматі (рядок, стовпець):\n";
+    for (int i = 0; i < differences; ++i) {
+        cout << "Неспівпадіння " << i + 1 << ": ";
+        cin >> userDifferences[i].first >> userDifferences[i].second;
+    }
+
+    int score = 0;
+    for (const auto& diff : userDifferences) {
+        int x = diff.first;
+        int y = diff.second;
+        if (x >= 0 && x < size && y >= 0 && y < size && matrix1[x][y] != matrix2[x][y]) {
+            ++score;
+        }
+    }
+
+    cout << "Гра завершена. Ваш результат: " << score << endl;
+
+    ofstream fileOut(HIGHSCORE_FILE, ios_base::app);
+    fileOut << username << " " << score << endl;
+    fileOut.close();
+}
+
+void showHighScores() {
+    ifstream fileIn(HIGHSCORE_FILE);
+    cout << "Найкращі результати:\n";
+    vector<pair<string, int>> highScores;
+    string name;
+    int score;
+    while (fileIn >> name >> score) {
+        highScores.push_back({name, score});
+    }
+    sort(highScores.begin(), highScores.end(), [](const auto& a, const auto& b) {
+        return b.second < a.second;
+    });
+
+    for (int i = 0; i < min(MAX_HIGHSCORES, static_cast<int>(highScores.size())); ++i) {
+        cout << i + 1 << ". " << highScores[i].first << ": " << highScores[i].second << endl;
+    }
+    fileIn.close();
+}
+
+int main() {
+    srand(static_cast<unsigned>(time(0)));  // Initialize random seed
+    GameSettings settings = {3, 1};
+
+    int choice;
+    do {
+        showMainMenu();
+        cin >> choice;
+
+        switch (choice) {
+            case 1:
+                playGame(settings);
+                break;
+            case 2:
+                showHighScores();
+                break;
+            case 3:
+                int settingChoice;
+                showSettingsMenu();
+                cin >> settingChoice;
+                switch (settingChoice) {
+                    case 1: settings = {3, 1}; break;
+                    case 2: settings = {4, 1}; break;
+                    case 3: settings = {4, 2}; break;
+                    case 4: settings = {5, 1}; break;
+                    case 5: settings = {5, 2}; break;
+                    case 6: settings = {5, 3}; break;
+                    default: cout << "Невірний вибір. Спробуйте ще раз.\n"; break;
+                }
+                break;
+            case 4:
+                cout << "Дякую за гру!\n";
+                break;
+            default:
+                cout << "Невірний вибір. Спробуйте ще раз.\n";
+        }
+    } while (choice != 4);
+
+    return 0;
+}
+
