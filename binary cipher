@@ -1,0 +1,101 @@
+#include <iostream>
+#include <fstream>
+#include <bitset>
+#include <string>
+using namespace std;
+
+// Обчислення наступного значення в логістичному відображенні
+double calculateNextValue(double value) {
+    return 3.9999 * value * (1 - value);
+}
+
+// Перетворення числа у двійковий формат (0 або 1)
+int convertNumberToBinary(double value) {
+    return (value <= 0.5) ? 0 : 1;
+}
+
+// Перетворення будь-яких даних у двійковий рядок
+string dataToBinaryString(const string& data) {
+    string binaryString = "";
+    for (char _char : data) {
+        binaryString += bitset<8>(_char).to_string(); // Перетворюємо кожен символ у 8-бітний двійковий код
+    }
+    return binaryString;
+}
+
+// Перетворення двійкового рядка у вихідні дані
+string binaryToDataString(const string& binaryString) {
+    string data = "";
+    for (size_t i = 0; i < binaryString.length(); i += 8) {
+        string byte = binaryString.substr(i, 8); // Беремо 8 бітів (1 байт)
+        data += static_cast<char>(bitset<8>(byte).to_ulong()); // Перетворюємо байт у символ
+    }
+    return data;
+}
+
+// Функція шифрування даних
+string encryptData(double startValue, const string& data) {
+    string binaryData = dataToBinaryString(data); 
+    double currentValue = startValue;
+    string encryptedBinaryString = "";
+    for (char bit : binaryData) {
+        // Шифрування за допомогою операції XOR (додавання за модулем 2)
+        encryptedBinaryString += (bit - '0') ^ convertNumberToBinary(currentValue) + '0'; 
+        currentValue = calculateNextValue(currentValue);
+    }
+    return encryptedBinaryString;
+}
+
+// Функція дешифрування даних (аналогічна шифруванню)
+string decryptData(double startValue, const string& encryptedData) {
+    return binaryToDataString(encryptData(startValue, encryptedData)); 
+}
+
+int main() {
+    double startValue = 0.0346079;  // Початкове значення для логістичного відображення
+
+    // Обробка вводу: вибір між файлом або текстовим повідомленням
+    cout << "Шифрувати (ф)айл або (т)екстове повідомлення? ";
+    char choice;
+    cin >> choice;
+    cin.ignore(); // Ігноримо символ нового рядка
+
+    string data;
+    if (choice == 'f') {
+        string filename;
+        cout << "Введіть ім'я вхідного файлу: ";
+        getline(cin, filename);
+
+        ifstream inputFile(filename, ios::binary); 
+        if (!inputFile) {
+            cerr << "Помилка відкриття файлу." << endl;
+            return 1;
+        }
+        data.assign((istreambuf_iterator<char>(inputFile)), istreambuf_iterator<char>()); // Зчитуємо дані з файлу
+        inputFile.close();
+    } else {
+        cout << "Введіть повідомлення: ";
+        getline(cin, data);
+    }
+
+    string encryptedData = encryptData(startValue, data);
+
+    // Обробка виводу: вибір між файлом або відображенням у консолі
+    cout << "Зберегти у (ф)айл або вивести на (к)онсоль? ";
+    cin >> choice;
+    cin.ignore();
+
+    if (choice == 'f') {
+        string filename;
+        cout << "Введіть ім'я вихідного файлу: ";
+        getline(cin, filename); 
+
+        ofstream outputFile(filename, ios::binary); 
+        outputFile << binaryToDataString(encryptedData);
+        outputFile.close();
+    } else {
+        cout << "Зашифровані дані: " << encryptedData << endl;
+    }
+
+    return 0;
+}
